@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 0.12.93 - 2024-02-06
+- Modified CI pipelines to publish additional pre-built grammar bundle for aarch64 linux.
+  + `tree-sitter-grammars.aarch64-unknown-linux-gnu.v<version>.tar.gz`
+
 ## 0.12.92 - 2024-01-07
 
 ## 0.12.91 - 2023-12-29
