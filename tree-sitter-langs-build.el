@@ -163,7 +163,9 @@ git checkout."
                 ('ocaml '("ocaml" ("interface" . ocaml-interface)))
                 ('ocaml-interface '("interface" ("interface" . ocaml-interface)))
                 ('typescript '("typescript" ("tsx" . tsx)))
-                ('xml '("tree-sitter-xml" ("tree-sitter-dtd" . dtd)))
+                ('xml '("xml" ("dtd" . dtd)))
+                ('markdown '("tree-sitter-markdown" ("tree-sitter-markdown" . markdown)))
+                ('markdown-inline '("tree-sitter-markdown-inline" ("tree-sitter-markdown-inline" . markdown)))
                 (_ '("")))))))
 
 (defun tree-sitter-langs--repo-status (lang-symbol)
@@ -201,7 +203,7 @@ git checkout."
 
 (defun tree-sitter-langs--get-latest (type)
   "Return the latest tags/commits of the language repositories.
-TYPE should be either `:commits' or `:tags'. If there's no tag, return the
+TYPE should be either `:commits' or `:tags'.  If there's no tag, return the
 latest commit."
   (require 'magit)
   (tree-sitter-langs--map-repos
@@ -230,10 +232,10 @@ latest commit."
 ;; ---------------------------------------------------------------------------
 ;;; Building language grammars.
 
-(defconst tree-sitter-langs--bundle-version "0.12.92"
+(defconst tree-sitter-langs--bundle-version "0.12.202"
   "Version of the grammar bundle.
 This should be bumped whenever a language submodule is updated, which should be
-infrequent (grammar-only changes). It is different from the version of
+infrequent (grammar-only changes).  It is different from the version of
 `tree-sitter-langs', which can change frequently (when queries change).")
 
 (defconst tree-sitter-langs--bundle-version-file "BUNDLE-VERSION")
@@ -242,6 +244,7 @@ infrequent (grammar-only changes). It is different from the version of
   (pcase system-type
     ('darwin "macos")
     ('gnu/linux "linux")
+    ('android "linux")
     ('berkeley-unix "freebsd")
     ('windows-nt "windows")
     (_ (error "Unsupported system-type %s" system-type))))
@@ -250,15 +253,22 @@ infrequent (grammar-only changes). It is different from the version of
   "List of suffixes for shared libraries that define tree-sitter languages.")
 
 (defconst tree-sitter-langs--langs-with-deps
-  '( arduino
-     astro
-     cpp
-     commonlisp
-     hlsl
-     glsl
-     toml
-     typescript)
-  "Languages that depend on another, thus requiring `npm install'.")
+  '((arduino)
+    (astro)
+    (cpp)
+    (commonlisp)
+    (hlsl)
+    (glsl)
+    (toml)
+    (typescript))
+  "Languages that depend on another, thus requiring `npm install'.
+
+You can use it as an alist to force install certain dependencies.  e.g.,
+
+  (cpp (\"tree-sitter-c@0.20.6\"))
+
+This can serve as a temporary workaround in case the upstream parsers
+encounter issues.")
 
 (defun tree-sitter-langs--bundle-file (&optional ext version os)
   "Return the grammar bundle file's name, with optional EXT.
@@ -294,7 +304,7 @@ If VERSION and OS are not spcified, use the defaults of
 This function requires git and tree-sitter CLI.
 
 If the optional arg CLEAN is non-nil, compile from the revision recorded in this
-project (through git submodules), and clean up afterwards. Otherwise, compile
+project (through git submodules), and clean up afterwards.  Otherwise, compile
 from the current state of the grammar repo, without cleanup."
   (message "[tree-sitter-langs] Processing %s" lang-symbol)
   (unless (executable-find "git")
@@ -334,9 +344,14 @@ from the current state of the grammar repo, without cleanup."
         (:synchronized nil)
         (_
          (error "Weird status from git-submodule '%s'" status))))
-    (let ((default-directory dir))
-      (when (member lang-symbol tree-sitter-langs--langs-with-deps)
+    (let ((default-directory dir)
+          (langs-with-deps (mapcar #'car tree-sitter-langs--langs-with-deps))
+          (cmds (cadr (assoc lang-symbol tree-sitter-langs--langs-with-deps))))
+      (when (member lang-symbol langs-with-deps)
         (tree-sitter-langs--call "npm" "set" "progress=false")
+        (dolist (cmd cmds)
+          (with-demoted-errors "Failed to run 'npm install XXX': %s"
+            (tree-sitter-langs--call "npm" "install" cmd)))
         (with-demoted-errors "Failed to run 'npm install': %s"
           (tree-sitter-langs--call "npm" "install")))
       ;; A repo can have multiple grammars (e.g. typescript + tsx).
@@ -430,7 +445,7 @@ from the current state of the grammar repo, without cleanup."
 The bundle includes all languages tracked in git submodules.
 
 If the optional arg CLEAN is non-nil, compile from the revisions recorded in
-this project (through git submodules), and clean up afterwards. Otherwise,
+this project (through git submodules), and clean up afterwards.  Otherwise,
 compile from the current state of the grammar repos, without cleanup."
   (unless (executable-find "tar")
     (error "Could not find tar executable (needed to bundle compiled grammars)"))
@@ -459,8 +474,7 @@ compile from the current state of the grammar repos, without cleanup."
                ;; Disk names in Windows can confuse tar, so we need this option. BSD
                ;; tar (macOS) doesn't have it, so we don't set it everywhere.
                ;; https://unix.stackexchange.com/questions/13377/tar/13381#13381.
-               (tar-opts (pcase system-type
-                           ('windows-nt '("--force-local")))))
+               (tar-opts nil))
           (with-temp-file tree-sitter-langs--bundle-version-file
             (let ((coding-system-for-write 'utf-8))
               (insert tree-sitter-langs--bundle-version)))
@@ -572,10 +586,10 @@ In case of retrieval or parsing error, logs an error message and returns nil."
 ;;;###autoload
 (defun tree-sitter-langs-install-latest-grammar (&optional skip-if-installed os keep-bundle)
   "Install the latest version of the tree-sitter-langs grammar bundle.
-Automatically retrieves the latest version tag from GitHub.
-If SKIP-IF-INSTALLED is non-nil, skips if the latest version is already installed.
-OS specifies the operating system.
-If KEEP-BUNDLE is non-nil, the downloaded bundle file is not deleted after installation."
+Automatically retrieves the latest version tag from GitHub.  If
+SKIP-IF-INSTALLED is non-nil, skips if the latest version is already installed.
+OS specifies the operating system.  If KEEP-BUNDLE is non-nil, the downloaded
+bundle file is not deleted after installation."
   (interactive (list 't tree-sitter-langs--os nil))
   (message "Fetching the latest version of tree-sitter-langs...")
   (let ((latest-tag (tree-sitter-langs-get-latest-tag)))
