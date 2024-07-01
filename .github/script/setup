@@ -1,2 +1,5 @@
 #!/usr/bin/env bash
 # Any additional setup for macOS/Linux should go here.
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" -y
+brew tap messense/macos-cross-toolchains
+brew install aarch64-unknown-linux-gnu
