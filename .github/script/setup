@@ -3,3 +3,8 @@
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" -y
 brew tap messense/macos-cross-toolchains
 brew install aarch64-unknown-linux-gnu
+mkdir $HOME/bin
+pushd $HOME/bin
+for tool in cc gcc ld ldd c++ as ar; do ln -s /opt/homebrew/Cellar/aarch64-unknown-linux-gnu/13.2.0/bin/aarch64-linux-gnu-$tool $tool; done
+popd
+echo 'export PATH="$HOME/bin"' >> ~/.bashrc

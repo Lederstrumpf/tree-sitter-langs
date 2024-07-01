@@ -68,7 +68,7 @@ jobs:
 
       - run: eask install-deps
 
-      - run: script/compile changed ${{ github.event.pull_request.base.sha }} -target "${{ matrix.target }}"
+      - run: export PATH="$HOME/bin" && cc --version && script/compile changed ${{ github.event.pull_request.base.sha }} -target "${{ matrix.target }}"
         if: github.event_name == 'pull_request'
         continue-on-error: ${{ !matrix.target }}
       - run: script/compile all -target "${{ matrix.target }}"
